@@ -10,20 +10,26 @@ const firebaseConfig = {
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com`,
+    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ? `https://${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}-default-rtdb.firebaseio.com` : undefined),
 };
 
-console.log("Firebase Config:", {
-    apiKey: !!firebaseConfig.apiKey,
-    projectId: !!firebaseConfig.projectId,
-    appId: !!firebaseConfig.appId,
-});
+// Initialize Firebase only if config is available
+let app;
+let auth: any;
+let db: any;
+let rtdb: any;
 
-
-// Initialize Firebase for SSR
-const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const rtdb = getDatabase(app);
+if (firebaseConfig.apiKey) {
+    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    rtdb = getDatabase(app);
+} else {
+    console.warn("Firebase configuration is missing. This is expected during some build stages if environment variables are not provided.");
+    // Provide a way for the app to not crash on import, but it will fail if services are called
+    auth = null;
+    db = null;
+    rtdb = null;
+}
 
 export { app, auth, db, rtdb };

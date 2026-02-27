@@ -23,6 +23,13 @@ export async function getUserQuota(userId: string): Promise<QuotaData> {
     if (!userId) throw new Error("User ID is required");
 
     const currentWeek = getWeekStart();
+    if (!rtdb) {
+        return {
+            videosUsed: 0,
+            videosTotal: WEEKLY_LIMIT,
+            weekStart: currentWeek
+        };
+    }
     const usageRef = ref(rtdb, `users/${userId}/usage`);
 
     const snapshot = await get(usageRef);
@@ -50,6 +57,7 @@ export async function checkQuota(userId: string): Promise<boolean> {
 }
 
 export async function incrementQuota(userId: string): Promise<void> {
+    if (!rtdb) return;
     const currentWeek = getWeekStart();
     const usageRef = ref(rtdb, `users/${userId}/usage`);
 

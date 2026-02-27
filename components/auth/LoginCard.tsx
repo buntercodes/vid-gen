@@ -27,6 +27,11 @@ export const LoginCard = () => {
         setLoading(true);
         setError("");
         const provider = new GoogleAuthProvider();
+        if (!auth) {
+            setError("Firebase is not properly configured. Please check your environment variables.");
+            setLoading(false);
+            return;
+        }
         try {
             await signInWithPopup(auth, provider);
             // Redirection is handled by the useEffect above
