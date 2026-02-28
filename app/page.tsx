@@ -28,6 +28,7 @@ import {
   Smartphone,
   Square,
   Film,
+  ShieldCheck,
   CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,7 +51,7 @@ const socialPresets = [
 ];
 
 export default function Home() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, isAdmin } = useAuth();
   const router = useRouter();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -72,6 +73,8 @@ export default function Home() {
   const ratioRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
+  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const promptContainerRef = useRef<HTMLDivElement>(null);
 
   // Prevent hydration mismatch and load saved state
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function Home() {
           setCredits(Math.max(0, quota.videosTotal - quota.videosUsed));
         }).catch(err => {
           console.error("Failed to load credits:", err);
-          setCredits(100); // UI fallback
+          setCredits(0); // UI fallback
         });
       });
     }
@@ -114,6 +117,9 @@ export default function Home() {
       }
       if (accountRef.current && !accountRef.current.contains(event.target as Node)) {
         setShowAccountMenu(false);
+      }
+      if (promptContainerRef.current && !promptContainerRef.current.contains(event.target as Node)) {
+        promptRef.current?.blur();
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -154,7 +160,7 @@ export default function Home() {
       }
 
       if (!hasQuota) {
-        setApiError("You have reached your weekly limit of 100 generated videos. Please upgrade your plan or check back next week.");
+        setApiError("You have reached your limit of free generations. Please upgrade your plan to continue.");
         setIsGenerating(false);
         return;
       }
@@ -171,11 +177,18 @@ export default function Home() {
       if (result.success && result.videoData) {
         setGeneratedVideo(result.videoData);
         try {
-          await incrementQuota(user.uid);
+          await incrementQuota(user.uid, {
+            prompt,
+            model,
+            aspectRatio,
+            duration,
+            type: activeTab
+          });
           setCredits(prev => (prev !== null && prev > 0 ? prev - 1 : prev));
         } catch (err) {
           console.error("Failed to deduct credit:", err);
         }
+
       } else {
         setApiError(result.error || "Failed to generate video");
       }
@@ -308,6 +321,16 @@ export default function Home() {
                   </div>
 
                   <div className="p-2 space-y-1">
+                    {isAdmin && (
+                      <button
+                        onClick={() => router.push("/admin")}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-500/10 rounded-xl transition-colors group"
+                      >
+                        <ShieldCheck className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform" />
+                        Admin Panel
+                      </button>
+                    )}
+
                     <button
                       onClick={() => router.push("/plan")}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors group"
@@ -334,7 +357,6 @@ export default function Home() {
 
       {/* Main Studio Area */}
       <main className="flex-1 overflow-hidden flex flex-col px-6 lg:px-10 pb-6 lg:pb-10 pt-4 gap-6">
-
         {/* Absolute Centered Tabs (Independent of columns) */}
         <div className="flex justify-center z-50">
           <div className="relative inline-flex p-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl shadow-xl shadow-purple-500/5">
@@ -373,12 +395,14 @@ export default function Home() {
           <div className="flex-1 flex flex-col justify-center space-y-6 z-10 w-full max-w-4xl mx-auto">
             <div className="space-y-6">
               {/* Prompt Input */}
-
-              {/* Prompt Input */}
               <div className="relative group">
                 <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-blue-600 rounded-3xl blur opacity-[0.08] dark:opacity-10 group-focus-within:opacity-30 transition duration-1000"></div>
-                <div className="relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-white/10 rounded-3xl p-4 transition-all duration-500 shadow-sm dark:shadow-none flex flex-col h-[420px]">
+                <div
+                  ref={promptContainerRef}
+                  className="relative bg-white dark:bg-[#0c0c0c] border border-slate-200 dark:border-white/10 rounded-3xl p-4 transition-all duration-500 shadow-sm dark:shadow-none flex flex-col h-[420px]"
+                >
                   <textarea
+                    ref={promptRef}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder={isI2V ? "Describe how the image should move or animate..." : "A futuristic city in the clouds, golden hour lighting, cinematic drone shot..."}
@@ -669,7 +693,6 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 }

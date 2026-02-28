@@ -11,7 +11,7 @@ export function getWeekStart() {
     return weekStart.toISOString().split('T')[0];
 }
 
-const WEEKLY_LIMIT = 100;
+const WEEKLY_LIMIT = 0;
 
 export interface QuotaData {
     videosUsed: number;
@@ -30,24 +30,35 @@ export async function getUserQuota(userId: string): Promise<QuotaData> {
             weekStart: currentWeek
         };
     }
-    const usageRef = ref(rtdb, `users/${userId}/usage`);
 
-    const snapshot = await get(usageRef);
-    let data = snapshot.exists() ? snapshot.val() : null;
+    // Fetch the entire user profile to check for admin-allocated credits (allowedCredits)
+    const userRef = ref(rtdb, `users/${userId}`);
+    const snapshot = await get(userRef);
+    const userData = snapshot.val() || {};
 
-    if (!data || data.weekStart !== currentWeek) {
-        // Reset or initialize quota for a new week
-        data = {
+    let usage = userData.usage;
+    // Admin can set 'allowedCredits' directly in the user node to override global limit
+    const allowedCredits = userData.allowedCredits ?? WEEKLY_LIMIT;
+
+    // If allowedCredits is missing in DB, populate it with current default
+    if (userData.allowedCredits === undefined) {
+        await update(userRef, { allowedCredits: WEEKLY_LIMIT });
+    }
+
+    if (!usage || usage.weekStart !== currentWeek) {
+        // Reset or initialize usage for the current week
+        usage = {
             weekStart: currentWeek,
             videosUsed: 0
         };
-        await set(usageRef, data);
+        const usageRef = ref(rtdb, `users/${userId}/usage`);
+        await set(usageRef, usage);
     }
 
     return {
-        videosUsed: data.videosUsed || 0,
-        videosTotal: WEEKLY_LIMIT,
-        weekStart: data.weekStart
+        videosUsed: usage.videosUsed || 0,
+        videosTotal: allowedCredits,
+        weekStart: usage.weekStart
     };
 }
 
@@ -56,14 +67,26 @@ export async function checkQuota(userId: string): Promise<boolean> {
     return quota.videosUsed < quota.videosTotal;
 }
 
-export async function incrementQuota(userId: string): Promise<void> {
+export async function incrementQuota(userId: string, generationDetails?: any): Promise<void> {
     if (!rtdb) return;
     const currentWeek = getWeekStart();
     const usageRef = ref(rtdb, `users/${userId}/usage`);
+    const globalGenerationsRef = ref(rtdb, `generations`);
+    const newGenRef = ref(rtdb, `generations/${Date.now()}_${userId}`);
 
     // Ensure we are incrementing the current week's quota appropriately
     await update(usageRef, {
         videosUsed: increment(1),
         weekStart: currentWeek
     });
+
+    // Log the generation globally
+    if (generationDetails) {
+        await set(newGenRef, {
+            ...generationDetails,
+            userId,
+            timestamp: new Date().toISOString()
+        });
+    }
 }
+

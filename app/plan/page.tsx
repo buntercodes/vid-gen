@@ -29,7 +29,7 @@ export default function PlanPage() {
                     console.error("Firebase Database Error:", err);
                     setDbError(err.message || "Could not connect to database.");
                     // Fallback so it doesn't infinite load
-                    setQuota({ videosUsed: 0, videosTotal: 100, weekStart: new Date().toISOString() });
+                    setQuota({ videosUsed: 0, videosTotal: 0, weekStart: new Date().toISOString() });
                 });
         }
     }, [user, loading, router]);
@@ -42,7 +42,7 @@ export default function PlanPage() {
         );
     }
 
-    const videoPercentage = Math.round((quota.videosUsed / quota.videosTotal) * 100);
+    const videoPercentage = quota.videosTotal > 0 ? Math.round((quota.videosUsed / quota.videosTotal) * 100) : 0;
 
     return (
         <div className="min-h-screen bg-slate-50 dark:bg-[#080808] text-slate-900 dark:text-slate-200 font-sans selection:bg-purple-500/30 overflow-y-auto w-full transition-colors duration-500">
@@ -176,19 +176,6 @@ export default function PlanPage() {
 
                         {/* Compute Minutes Quota - Removed as limit is now video count based */}
 
-                        {/* Extra Info / Top Up block */}
-                        <div className="bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-3xl p-6 flex items-start gap-4 shadow-sm">
-                            <Info className="w-5 h-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
-                            <div>
-                                <h4 className="font-bold text-purple-900 dark:text-purple-300 mb-1">Need more juice?</h4>
-                                <p className="text-sm text-purple-700 dark:text-purple-200/70 mb-4">
-                                    Your quotas reset at the beginning of your billing cycle. If you require more compute right now, you can perform a one-time top up.
-                                </p>
-                                <button className="px-5 py-2 rounded-xl font-bold text-sm text-white bg-purple-600 hover:bg-purple-500 transition-colors shadow-lg shadow-purple-500/20">
-                                    Buy Compute Credits
-                                </button>
-                            </div>
-                        </div>
 
                     </motion.div>
 
